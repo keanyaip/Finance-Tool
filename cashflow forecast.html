@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Finance Management System - Pro Save</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .tab-active { border-bottom: 4px solid #1e3a8a; color: #1e3a8a; font-weight: bold; }
+        .hidden { display: none; }
+        .monitor-grid { display: grid; grid-template-columns: 180px repeat(4, 1fr); gap: 1px; background-color: #e2e8f0; border: 1px solid #e2e8f0; }
+        .monitor-cell { background-color: white; padding: 10px; font-size: 12px; display: flex; align-items: center; justify-content: center; text-align: center; }
+        .monitor-header { background-color: #f8fafc; font-weight: bold; color: #475569; text-transform: uppercase; font-size: 10px; }
+        .acc-tag { background-color: #fef08a; font-weight: bold; justify-content: space-between !important; padding: 10px 15px; }
+        .bg-income { background-color: #e0f2fe; }
+        .bg-expense { background-color: #ffe4e6; }
+        input:focus { outline: none; border-bottom: 1px solid #2563eb; }
+        .filtered-out { display: none; }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-800 min-h-screen pb-20">
+
+    <nav class="bg-white shadow-sm border-b sticky top-0 z-30">
+        <div class="max-w-7xl mx-auto px-4 flex justify-between items-center">
+            <div class="flex overflow-x-auto">
+                <button onclick="showTab('balance-sheet')" id="tab-bs" class="py-4 px-6 text-xs uppercase">Asset & Liability</button>
+                <button onclick="showTab('income-statement')" id="tab-is" class="py-4 px-6 text-xs uppercase">Income Statement</button>
+                <button onclick="showTab('cash-flow')" id="tab-cf" class="py-4 px-6 text-xs uppercase">Cash Flow Sheet</button>
+                <button onclick="showTab('ledger')" id="tab-lg" class="py-4 px-6 text-xs uppercase tab-active text-blue-700">Ledger</button>
+            </div>
+            <div class="flex gap-2">
+                <button onclick="saveToBrowser()" class="bg-emerald-600 text-white px-4 py-2 rounded text-[10px] font-bold shadow-sm hover:bg-emerald-700">SAVE DATA</button>
+                <button onclick="clearStorage()" class="bg-slate-200 text-slate-600 px-4 py-2 rounded text-[10px] font-bold hover:bg-rose-500 hover:text-white transition">RESET</button>
+            </div>
+        </div>
+    </nav>
+
+    <div class="max-w-7xl mx-auto p-4 md:p-8">
+
+        <div id="balance-sheet" class="hidden space-y-6">
+            <div class="grid md:grid-cols-2 gap-6">
+                <div class="bg-white p-6 rounded-xl shadow border">
+                    <h2 class="font-bold text-emerald-700 mb-4 uppercase text-sm border-b pb-2">Assets</h2>
+                    <div id="bs-assets-container" class="space-y-3"></div>
+                </div>
+                <div class="bg-white p-6 rounded-xl shadow border">
+                    <div class="flex justify-between items-center mb-4 border-b pb-2">
+                        <h2 class="font-bold text-rose-700 uppercase text-sm">Liability</h2>
+                        <button onclick="addManualLiability()" class="bg-rose-50 text-rose-600 px-2 py-1 rounded text-[10px] font-bold">+ ADD</button>
+                    </div>
+                    <div id="bs-liab-container" class="space-y-3"></div>
+                </div>
+            </div>
+            <div class="bg-slate-900 text-white p-6 rounded-xl flex justify-between items-center shadow-lg">
+                <span class="font-bold uppercase text-xs tracking-widest">Net Equity</span>
+                <span class="text-2xl font-mono font-bold">RM <span id="equity-display">0.00</span></span>
+            </div>
+        </div>
+
+        <div id="income-statement" class="hidden space-y-6">
+            <div class="bg-white rounded-xl shadow border overflow-hidden">
+                <table class="w-full text-sm">
+                    <thead>
+                        <tr class="bg-slate-100 border-b">
+                            <th class="p-4 text-left">Category / Remark</th>
+                            <th class="p-4 text-right">Amount (RM)</th>
+                            <th class="p-4 text-right text-xs">%</th>
+                        </tr>
+                    </thead>
+                    <tbody id="is-tbody"></tbody>
+                    <tfoot class="bg-slate-800 text-white font-bold">
+                        <tr>
+                            <td class="p-4 uppercase">Final Net Income</td>
+                            <td class="p-4 text-right" id="is-net-total">0.00</td>
+                            <td class="p-4 text-right text-yellow-400" id="is-net-pct">0%</td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+        </div>
+
+        <div id="cash-flow" class="hidden space-y-6">
+            <div class="bg-white p-5 rounded-xl shadow border flex flex-col md:flex-row justify-between items-center gap-4">
+                <h2 class="text-lg font-bold">Cash Flow Sheet</h2>
+                <div class="flex gap-2">
+                    <select id="acc-picker" class="border rounded-lg px-4 py-2 bg-slate-50 text-sm outline-none"></select>
+                    <button onclick="monitorNew()" class="bg-blue-600 text-white px-6 py-2 rounded-lg text-xs font-bold">ADD TO MONITOR</button>
+                </div>
+            </div>
+            <div id="monitoring-container" class="bg-white rounded-xl shadow border overflow-hidden"></div>
+        </div>
+
+        <div id="ledger" class="space-y-4">
+            <div class="flex justify-between items-center gap-4">
+                <input type="text" id="ledger-filter" oninput="applyFilter()" placeholder="Search..." class="border rounded-lg px-4 py-2 text-sm w-full md:w-80">
+                <button onclick="addRow()" class="bg-blue-600 text-white px-6 py-2 rounded-lg text-xs font-bold shadow-lg">+ NEW ENTRY</button>
+            </div>
+            <div class="bg-white rounded-xl shadow border overflow-x-auto">
+                <table class="w-full text-[12px] min-w-[900px]">
+                    <thead class="bg-slate-50 text-slate-500 font-bold border-b">
+                        <tr>
+                            <th class="p-4 text-left w-32">Date</th>
+                            <th class="p-4 text-left">Type</th>
+                            <th class="p-4 text-left">From</th>
+                            <th class="p-4 text-left">To</th>
+                            <th class="p-4 text-right">Amount (RM)</th>
+                            <th class="p-4 text-left">Remark</th>
+                            <th class="p-3"></th>
+                        </tr>
+                    </thead>
+                    <tbody id="ledger-body"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let monitoringList = {}; 
+        let manualLiabs = {}; 
+
+        // Accounting Format RM 1,000.00
+        function fmt(num) {
+            return num.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        }
+
+        function addRow(data = null) {
+            const tr = document.createElement('tr');
+            tr.className = "ledger-row border-b hover:bg-slate-50";
+            tr.innerHTML = `
+                <td class="p-3"><input type="date" class="w-full bg-transparent t-date" value="${data ? data.date : ''}"></td>
+                <td class="p-3">
+                    <select onchange="sync()" class="t-type bg-transparent font-bold text-blue-600 outline-none">
+                        <option value="transfer" ${data?.type==='transfer'?'selected':''}>Transfer</option>
+                        <option value="income" ${data?.type==='income'?'selected':''}>Income (Work)</option>
+                        <option value="indirect" ${data?.type==='indirect'?'selected':''}>Indirect Interest</option>
+                        <option value="expenses" ${data?.type==='expenses'?'selected':''}>Expenses</option>
+                    </select>
+                </td>
+                <td class="p-3"><input type="text" oninput="sync()" class="t-from w-full bg-transparent" value="${data ? data.from : ''}"></td>
+                <td class="p-3"><input type="text" oninput="sync()" class="t-to w-full bg-transparent" value="${data ? data.to : ''}"></td>
+                <td class="p-3"><input type="number" step="0.01" oninput="sync()" class="t-amt w-full bg-transparent text-right font-mono" value="${data ? data.amt : ''}"></td>
+                <td class="p-3"><input type="text" oninput="sync()" class="t-rem w-full bg-transparent" value="${data ? data.rem : ''}"></td>
+                <td class="p-3 text-center"><button onclick="confirmDelete(this)" class="text-slate-300 hover:text-red-500 text-xl">&times;</button></td>
+            `;
+            document.getElementById('ledger-body').appendChild(tr);
+            if(!data) sync();
+        }
+
+        function confirmDelete(btn) {
+            const row = btn.parentElement.parentElement;
+            const hasData = Array.from(row.querySelectorAll('input')).some(i => i.value.trim() !== "");
+            if (!hasData || confirm("Delete data?")) { row.remove(); sync(); }
+        }
+
+        function sync() {
+            const rows = document.querySelectorAll('#ledger-body tr');
+            let foundNames = new Set();
+            let data = [];
+            rows.forEach(r => {
+                const f = r.querySelector('.t-from').value.trim();
+                const t = r.querySelector('.t-to').value.trim();
+                const amt = parseFloat(r.querySelector('.t-amt').value) || 0;
+                if(f && !["INFLOW", "OUTFLOW"].includes(f.toUpperCase())) foundNames.add(f.toUpperCase());
+                if(t && !["INFLOW", "OUTFLOW"].includes(t.toUpperCase())) foundNames.add(t.toUpperCase());
+                data.push({ 
+                    date: r.querySelector('.t-date').value,
+                    type: r.querySelector('.t-type').value, 
+                    from: f.toUpperCase(), to: t.toUpperCase(), 
+                    amt, rem: r.querySelector('.t-rem').value.trim() 
+                });
+            });
+
+            const picker = document.getElementById('acc-picker');
+            const current = picker.value;
+            picker.innerHTML = '<option value="">-- Choose Account --</option>';
+            Array.from(foundNames).sort().forEach(n => picker.innerHTML += `<option value="${n}">${n}</option>`);
+            picker.value = current;
+
+            updateAllReports(data);
+        }
+
+        function updateAllReports(data) {
+            // Income Statement
+            const isBody = document.getElementById('is-tbody');
+            let workRev = 0, bankInterest = 0, expenses = {}, totalExp = 0;
+            data.forEach(d => {
+                if (d.type === 'income') workRev += d.amt;
+                if (d.type === 'indirect') bankInterest += d.amt;
+                if (d.type === 'expenses') {
+                    expenses[d.rem || "Other"] = (expenses[d.rem || "Other"] || 0) + d.amt;
+                    totalExp += d.amt;
+                }
+            });
+            let totalInc = workRev + bankInterest;
+            isBody.innerHTML = `
+                <tr class="bg-income border-b font-medium"><td class="p-4">Revenue (Work Income)</td><td class="p-4 text-right">${fmt(workRev)}</td><td class="p-4 text-right">100%</td></tr>
+                <tr class="bg-income border-b font-medium"><td class="p-4">Indirect Interest (Bank)</td><td class="p-4 text-right">${fmt(bankInterest)}</td><td class="p-4 text-right">-</td></tr>
+            `;
+            for (let c in expenses) {
+                let p = totalInc > 0 ? (expenses[c]/totalInc*100).toFixed(2) : 0;
+                isBody.innerHTML += `<tr class="bg-expense border-b"><td class="p-4 px-8 text-rose-700">${c}</td><td class="p-4 text-right text-rose-600">(${fmt(expenses[c])})</td><td class="p-4 text-right text-xs">-${p}%</td></tr>`;
+            }
+            document.getElementById('is-net-total').innerText = fmt(totalInc - totalExp);
+            document.getElementById('is-net-pct').innerText = totalInc > 0 ? ((totalInc-totalExp)/totalInc*100).toFixed(2)+'%' : '0%';
+
+            // Cash Flow Grid & Assets
+            const cfCon = document.getElementById('monitoring-container');
+            let cfHtml = `<div class="monitor-grid">
+                <div class="monitor-cell monitor-header">Account Name</div>
+                <div class="monitor-cell monitor-header">Start</div>
+                <div class="monitor-cell monitor-header text-emerald-600">In (+)</div>
+                <div class="monitor-cell monitor-header text-rose-500">Out (-)</div>
+                <div class="monitor-cell monitor-header">END</div>`;
+            const assetsCon = document.getElementById('bs-assets-container');
+            assetsCon.innerHTML = '';
+            let totalAssets = 0;
+            for (let acc in monitoringList) {
+                let inflow = 0, outflow = 0;
+                data.forEach(d => { if(d.to === acc) inflow += d.amt; if(d.from === acc) outflow += d.amt; });
+                const end = monitoringList[acc] + inflow - outflow;
+                totalAssets += end;
+                cfHtml += `
+                    <div class="monitor-cell acc-tag">${acc} <button onclick="stopMonitoring('${acc}')" class="text-rose-400 font-bold ml-2">×</button></div>
+                    <div class="monitor-cell">${fmt(monitoringList[acc])}</div>
+                    <div class="monitor-cell text-emerald-600">${fmt(inflow)}</div>
+                    <div class="monitor-cell text-rose-500">${fmt(outflow)}</div>
+                    <div class="monitor-cell font-bold bg-slate-50">${fmt(end)}</div>`;
+                assetsCon.innerHTML += `<div class="flex justify-between p-3 bg-slate-50 rounded border"><span>${acc}</span><span class="font-bold text-emerald-700">${fmt(end)}</span></div>`;
+            }
+            cfCon.innerHTML = cfHtml + '</div>';
+
+            // Liability & Equity
+            const liabCon = document.getElementById('bs-liab-container');
+            liabCon.innerHTML = '';
+            let totalLiabs = 0;
+            for (let l in manualLiabs) {
+                totalLiabs += manualLiabs[l];
+                liabCon.innerHTML += `<div class="flex justify-between p-3 bg-rose-50 rounded border border-rose-100"><div><button onclick="removeLiability('${l}')" class="text-rose-300 mr-2">×</button>${l}</div><span class="font-bold text-rose-700">${fmt(manualLiabs[l])}</span></div>`;
+            }
+            document.getElementById('equity-display').innerText = fmt(totalAssets - totalLiabs);
+        }
+
+        function saveToBrowser() {
+            const ledgerRows = [];
+            document.querySelectorAll('#ledger-body tr').forEach(r => {
+                ledgerRows.push({
+                    date: r.querySelector('.t-date').value,
+                    type: r.querySelector('.t-type').value,
+                    from: r.querySelector('.t-from').value,
+                    to: r.querySelector('.t-to').value,
+                    amt: r.querySelector('.t-amt').value,
+                    rem: r.querySelector('.t-rem').value
+                });
+            });
+            const data = { ledgerRows, monitoringList, manualLiabs };
+            localStorage.setItem('financeData', JSON.stringify(data));
+            alert("Data saved successfully in this browser!");
+        }
+
+        function loadFromBrowser() {
+            const saved = localStorage.getItem('financeData');
+            if (saved) {
+                const data = JSON.parse(saved);
+                monitoringList = data.monitoringList || {};
+                manualLiabs = data.manualLiabs || {};
+                document.getElementById('ledger-body').innerHTML = '';
+                if(data.ledgerRows.length) {
+                    data.ledgerRows.forEach(row => addRow(row));
+                } else { addRow(); }
+                sync();
+            } else { addRow(); }
+        }
+
+        function clearStorage() { if(confirm("This will erase everything. Are you sure?")) { localStorage.removeItem('financeData'); location.reload(); } }
+        function monitorNew() { 
+            const n = document.getElementById('acc-picker').value; 
+            if (n && !monitoringList[n]) { 
+                const s = parseFloat(prompt(`Opening for ${n}:`, "0")) || 0; 
+                monitoringList[n] = s; sync(); 
+            } 
+        }
+        function stopMonitoring(n) { delete monitoringList[n]; sync(); }
+        function addManualLiability() { 
+            const n = prompt("Name:"); 
+            if(n) { manualLiabs[n] = parseFloat(prompt("Amount:", "0")) || 0; sync(); } 
+        }
+        function removeLiability(n) { delete manualLiabs[n]; sync(); }
+        function applyFilter() {
+            const q = document.getElementById('ledger-filter').value.toLowerCase();
+            document.querySelectorAll('.ledger-row').forEach(row => {
+                const text = Array.from(row.querySelectorAll('input, select')).map(i => i.value.toLowerCase()).join(' ');
+                row.classList.toggle('filtered-out', !text.includes(q));
+            });
+        }
+        function showTab(id) {
+            ['balance-sheet', 'income-statement', 'cash-flow', 'ledger'].forEach(t => document.getElementById(t).classList.toggle('hidden', t !== id));
+            document.querySelectorAll('nav button').forEach(b => b.classList.remove('tab-active', 'text-blue-700', 'font-bold'));
+            const btnMap = {'balance-sheet':'tab-bs','income-statement':'tab-is','cash-flow':'tab-cf','ledger':'tab-lg'};
+            if(btnMap[id]) document.getElementById(btnMap[id]).classList.add('tab-active', 'text-blue-700', 'font-bold');
+        }
+
+        window.onload = loadFromBrowser;
+    </script>
+</body>
+</html>
